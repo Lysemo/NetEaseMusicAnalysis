@@ -85,7 +85,7 @@ def songParser(url):
     totalPages = int(br_t.find_elements_by_class_name('zpgi')[-1].text)
 
     f = open('data/' + song_name + '_' + song_author + '.csv', 'w+', newline='', encoding='utf-8')
-    keys = ['id','nick,comment','refer_nick','refer','time','star']
+    keys = ['id','nick','comment','refer_nick','refer','time','star']
     filewriter = csv.writer(f)
     filewriter.writerow(list(keys))
     f.close()
