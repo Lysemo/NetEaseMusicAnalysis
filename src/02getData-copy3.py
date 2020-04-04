@@ -1,5 +1,6 @@
 '''
-current newest vision
+vision:2.0
+sovle multi mix comment crawl
 '''
 from selenium import webdriver
 import copy

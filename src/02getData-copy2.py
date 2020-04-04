@@ -1,4 +1,5 @@
 '''
+vision:1.0
 get song url collection by page_source
 get comment by multi thread
 ques:
