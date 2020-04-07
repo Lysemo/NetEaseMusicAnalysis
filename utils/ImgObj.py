@@ -1,0 +1,12 @@
+class ImgObj:
+    def __init__(self,stat,content,url,suffixName):
+        self.stat=stat      #标识这个URL所指向的图片是否成功爬取
+        self.content=content    #图片的二进制信息
+        self.url=url            #该图片的URL地址
+        self.suffixName=suffixName  #图片的后缀名
+    def getImg(self):
+        return self.content
+    def getSuffixName(self):
+        return self.suffixName
+    def getStat(self):
+        return self.stat
