@@ -8,6 +8,7 @@ import csv
 import re
 import threading
 from utils.CrawImg import CrawImg
+from utils.insert_into_DB import saveComments_to_mongo,saveSongAndSinger_to_mongo
 
 def normChara(x):
     x = x.replace('/','_')
@@ -34,7 +35,7 @@ def saveCSV(data,name):
 def saveAvatar(url,nick):
     crawImg = CrawImg()
     crawImg.getImg(url)
-    imgName = 'data/avatar/' +nick + crawImg.getArray()[0].getSuffixName()
+    imgName = 'data/avatar/' + normChara(nick) + crawImg.getArray()[0].getSuffixName()
     with open(imgName,'wb+') as f:
         f.write(crawImg.getArray()[0].getImg())
 def commentsParser(comments,song_id):
@@ -45,6 +46,7 @@ def commentsParser(comments,song_id):
         'comment':'',
         'refer_nick':'',
         'refer':'',
+        'crawler_time':'',
         'time':'',
         'star':0
     }
@@ -66,14 +68,18 @@ def commentsParser(comments,song_id):
                 comment_dict['refer']=ref[0].text[ref[0].text.find(refer_nick)+len(refer_nick)+1:]
             else:
                 # print('评论已删除')
-                pass
+                comment_dict['refer_nick']='0xffff'
+        comment_dict['crawler_time'] = time.strftime('%Y/%m/%d %H:%M:%S',time.localtime(time.time()))
         comment_dict['time']=comment.find_element_by_css_selector('.time.s-fc4').text
         star = comment.find_element_by_css_selector('.rp').find_elements_by_tag_name('a')[0].text
         comment_dict['star']=0
         if(len(star)!=0):
             comment_dict['star']=int(star[1:-1])
         avatarURL = comment.find_element_by_css_selector('.head').find_element_by_tag_name('img').get_attribute('src')
-        saveAvatar(avatarURL,nick)
+        try:
+            saveAvatar(avatarURL,nick)
+        except:
+            print(nick + 'avatar save happen error')
         comment_list.append(comment_dict)
     return comment_list
 def songParser(url):
@@ -88,10 +94,17 @@ def songParser(url):
     print(url+'页面到达')
     br_t.switch_to.frame('contentFrame')
     time.sleep(1)
+    s_n = br_t.find_element_by_css_selector('.tit').text
+    s_a = br_t.find_elements_by_css_selector('.des.s-fc4')[0].find_element_by_tag_name('span').get_attribute('title')
     song_name = normChara(br_t.find_element_by_css_selector('.tit').text)
     song_author = normChara(br_t.find_elements_by_css_selector('.des.s-fc4')[0].find_element_by_tag_name('span').get_attribute('title'))
-    print('%s_%s-->评论开始抓取...' % (song_name, song_author))
-    totalPages = int(br_t.find_elements_by_class_name('zpgi')[-1].text)
+    saveSongAndSinger_to_mongo({'id':song_id,'song_name':s_n,'song_author':s_a})
+    print('%s-%s-->评论开始抓取...' % (s_n, s_a))
+    try:
+        totalPages = int(br_t.find_elements_by_class_name('zpgi')[-1].text)
+    except:
+        print(s_n + ' || ' + s_a + 'ignore')
+        return -2
 
     f = open('data/comment/' + song_name + '_' + song_author + '.csv', 'w+', newline='', encoding='utf-8')
     keys = ['id','nick','comment','refer_nick','refer','time','star']
@@ -100,9 +113,10 @@ def songParser(url):
     f.close()
 
     for i in range(totalPages):
-        print('(%s-%s)第<%d/%d>页评论开始抓取...' % (song_name, song_author,i + 1, totalPages))
+        print('(%s-%s)第<%d/%d>页评论开始抓取...' % (s_n, s_a,i + 1, totalPages))
         cmts = br_t.find_elements_by_class_name('itm')
         comment_list = commentsParser(cmts[-20:],song_id)
+        saveComments_to_mongo(comment_list)
         saveCSV(comment_list, 'data/comment/' + song_name + '_' + song_author + '.csv')
         scriptClick(br_t, br_t.find_element_by_link_text('下一页'))
         # print(comment_list)
@@ -111,7 +125,7 @@ def songParser(url):
 
 if __name__ == '__main__':
     fo = webdriver.FirefoxOptions()
-    # fo.add_argument('--headless')
+    fo.add_argument('--headless')
     # fo.add_argument('--disable-gpu')
 
     br = webdriver.Firefox(firefox_options=fo)

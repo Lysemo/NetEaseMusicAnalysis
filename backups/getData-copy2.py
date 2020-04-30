@@ -1,10 +1,6 @@
 '''
-vision:1.0
-get song url collection by page_source
-get comment by multi thread
-ques:
-only get one mix,
-not get user img,
+vision:2.0
+sovle multi mix comment crewl
 '''
 from selenium import webdriver
 import copy
@@ -30,9 +26,8 @@ def scriptClick(bro,page):
     bro.execute_script('arguments[0].click();', page)
     time.sleep(1)
 def saveCSV(data,name):
-    f = open(name,'w+',newline='',encoding='utf-8')
+    f = open(name,'a+',newline='',encoding='utf-8')
     filewriter = csv.writer(f)
-    filewriter.writerow(list(data[0].keys()))
     for d in data:
         filewriter.writerow(list(d.values()))
     f.close()
@@ -89,23 +84,27 @@ def songParser(url):
     song_author = normChara(br_t.find_elements_by_css_selector('.des.s-fc4')[0].find_element_by_tag_name('span').get_attribute('title'))
     print('%s_%s-->评论开始抓取...' % (song_name, song_author))
     totalPages = int(br_t.find_elements_by_class_name('zpgi')[-1].text)
-    tmp = []
+
+    f = open('data/' + song_name + '_' + song_author + '.csv', 'w+', newline='', encoding='utf-8')
+    keys = ['id','nick','comment','refer_nick','refer','time','star']
+    filewriter = csv.writer(f)
+    filewriter.writerow(list(keys))
+    f.close()
+
     for i in range(totalPages):
         print('(%s-%s)第<%d/%d>页评论开始抓取...' % (song_name, song_author,i + 1, totalPages))
         cmts = br_t.find_elements_by_class_name('itm')
         comment_list = commentsParser(cmts[-20:],song_id)
-        tmp.extend(comment_list)
+        saveCSV(comment_list, 'data/' + song_name + '_' + song_author + '.csv')
         scriptClick(br_t, br_t.find_element_by_link_text('下一页'))
-    saveCSV(tmp, 'data/' + song_name + '_' + song_author + '.csv')
+        # print(comment_list)
     print('-----%s_%s抓取完毕-----' % (song_name,song_author))
     br_t.quit()
 
-
-
 if __name__ == '__main__':
     fo = webdriver.FirefoxOptions()
-    fo.add_argument('--headless')
-    fo.add_argument('--disable-gpu')
+    # fo.add_argument('--headless')
+    # fo.add_argument('--disable-gpu')
 
     br = webdriver.Firefox(firefox_options=fo)
     url = 'https://music.163.com/'
@@ -116,19 +115,25 @@ if __name__ == '__main__':
     anchorClick(mix_button)
     br.switch_to.frame('contentFrame')
     time.sleep(1)
-    mixs = br.find_element_by_id('m-pl-container').find_elements_by_tag_name('li')
-
-    anchorClick(mixs[0])
-    song_urls = findSongURLs(br.page_source)
-    threads = []
-    for song_url in song_urls:
-        threads.append(threading.Thread(target=songParser, args=(song_url,)))
-    for t in threads:
-        t.start()
-        while(True):
-            time.sleep(2)
-            if(len(threading.enumerate())<4):
-                break
+    totalPages = int(br.find_elements_by_class_name('zpgi')[-1].text)
+    for perpage in range(totalPages):
+        mixs_len = len(br.find_element_by_id('m-pl-container').find_elements_by_tag_name('li'))
+        for permix in range(mixs_len):
+            mix = br.find_element_by_id('m-pl-container').find_elements_by_tag_name('li')[permix]
+            anchorClick(mix)
+            song_urls = findSongURLs(br.page_source)
+            threads = []
+            for song_url in song_urls:
+                threads.append(threading.Thread(target=songParser, args=(song_url,)))
+            for t in threads:
+                t.start()
+                while(True):
+                    time.sleep(2)
+                    if(len(threading.enumerate())<3):
+                        break
+            br.back()
+            time.sleep(1)
+        scriptClick(br, br.find_element_by_link_text('下一页'))
     br.quit()
 
 

@@ -1,17 +1,12 @@
 ## 1.Python+Selenium基础+环境配置：
 * URL：https://www.jianshu.com/p/1531e12f8852
-
 ## 2.WebDriver配置：
 * URL：https://www.cnblogs.com/alex-13/p/11152435.html
-## find_elements_by_xpath("./*")  找到所有子元素
-## find_elements_by_xpath("./..")  找到父元素
-## # print(cmt.get_attribute("innerHTML"))  获取元素下源码
-## current_window = br.current_window_handle
-## page.click()
-## all_windows = br.window_handles
-## for window in all_windows:
-##     if window != current_window:
-##         br.switch_to.window(window)
-## br.switch_to.default_content()
-## br.switch_to.frame('contentFrame')
-## time.sleep(1)
+## 3.MongoDB安装与配置：
+* URL：https://www.cnblogs.com/dreamsqin/p/10885038.html
+* URL：https://www.cnblogs.com/NISUN/p/9209849.html（可视化工具compass使用）
+## 4.MongoDB常见命令使用
+* URL：https://www.runoob.com/mongodb/mongodb-create-database.html
+## 5.基于python的MongoDB数据库操作
+* 安装并导入pymongo库
+* 需提前建立web_crawler数据库

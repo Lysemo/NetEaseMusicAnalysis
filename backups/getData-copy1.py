@@ -1,22 +1,33 @@
 '''
-vision:0.0
+vision:1.0
+get song url collection by page_source
+get comment by multi thread
+ques:
+only get one mix,
+not get user img,
 '''
 from selenium import webdriver
 import copy
 import time
 import csv
+import re
+import threading
 
 def normChara(x):
     x = x.replace('/','_')
     x = x.replace('\\','_')
     x = x.replace('：','_')
     x = x.replace(':','_')
+    x = x.replace('\n','-')
     return x
 def anchorClick(page):
     page.click()
     time.sleep(1)
-def scriptClick(page):
-    br.execute_script('arguments[0].click();', page)
+def findSongURLs(page_source):
+    p = re.compile(r'/song\?id=\d+')
+    return p.findall(page_source)
+def scriptClick(bro,page):
+    bro.execute_script('arguments[0].click();', page)
     time.sleep(1)
 def saveCSV(data,name):
     f = open(name,'w+',newline='',encoding='utf-8')
@@ -25,9 +36,10 @@ def saveCSV(data,name):
     for d in data:
         filewriter.writerow(list(d.values()))
     f.close()
-def commentsParser(comments):
+def commentsParser(comments,song_id):
     comment_list = []
     template_dict = {
+        'id':'',
         'nick':'',
         'comment':'',
         'refer_nick':'',
@@ -40,6 +52,7 @@ def commentsParser(comments):
         cmt = comment.find_element_by_css_selector('.cnt.f-brk')
         nick = cmt.find_element_by_tag_name('a').text
         cmt_con = cmt.text[cmt.text.find(nick)+len(nick)+1:]
+        comment_dict['id']=song_id
         comment_dict['nick']=nick
         comment_dict['comment']=cmt_con
         ref = comment.find_elements_by_css_selector('.que.f-brk.f-pr.s-fc3')
@@ -51,7 +64,7 @@ def commentsParser(comments):
                 comment_dict['refer_nick']=refer_nick
                 comment_dict['refer']=ref[0].text[ref[0].text.find(refer_nick)+len(refer_nick)+1:]
             else:
-                print('评论已删除')
+                # print('评论已删除')
                 pass
         comment_dict['time']=comment.find_element_by_css_selector('.time.s-fc4').text
         star = comment.find_element_by_css_selector('.rp').find_elements_by_tag_name('a')[0].text
@@ -60,17 +73,44 @@ def commentsParser(comments):
             comment_dict['star']=int(star[1:-1])
         comment_list.append(comment_dict)
     return comment_list
+def songParser(url):
+    p = re.compile(r'\d+')
+    song_id = p.findall(url)[0]
+    fo_t = webdriver.FirefoxOptions()
+    fo_t.add_argument('--headless')
+    br_t = webdriver.Firefox(firefox_options=fo_t)
+    print(url+'-浏览器打开成功')
+    url = 'https://music.163.com'+url
+    br_t.get(url)
+    print(url+'页面到达')
+    br_t.switch_to.frame('contentFrame')
+    time.sleep(1)
+    song_name = normChara(br_t.find_element_by_css_selector('.tit').text)
+    song_author = normChara(br_t.find_elements_by_css_selector('.des.s-fc4')[0].find_element_by_tag_name('span').get_attribute('title'))
+    print('%s_%s-->评论开始抓取...' % (song_name, song_author))
+    totalPages = int(br_t.find_elements_by_class_name('zpgi')[-1].text)
+    tmp = []
+    for i in range(totalPages):
+        print('(%s-%s)第<%d/%d>页评论开始抓取...' % (song_name, song_author,i + 1, totalPages))
+        cmts = br_t.find_elements_by_class_name('itm')
+        comment_list = commentsParser(cmts[-20:],song_id)
+        tmp.extend(comment_list)
+        scriptClick(br_t, br_t.find_element_by_link_text('下一页'))
+    saveCSV(tmp, 'data/' + song_name + '_' + song_author + '.csv')
+    print('-----%s_%s抓取完毕-----' % (song_name,song_author))
+    br_t.quit()
+
+
 
 if __name__ == '__main__':
     fo = webdriver.FirefoxOptions()
-    # fo.add_argument('--headless')
-    # fo.add_argument('--disable-gpu')
+    fo.add_argument('--headless')
+    fo.add_argument('--disable-gpu')
 
     br = webdriver.Firefox(firefox_options=fo)
-    print('浏览器打开成功')
     url = 'https://music.163.com/'
     br.get(url)
-    print(url+'页面到达')
+    print('主程序启动')
 
     mix_button = br.find_element_by_class_name("nav").find_element_by_link_text('歌单')
     anchorClick(mix_button)
@@ -79,33 +119,17 @@ if __name__ == '__main__':
     mixs = br.find_element_by_id('m-pl-container').find_elements_by_tag_name('li')
 
     anchorClick(mixs[0])
-    playlists = br.find_element_by_id('song-list-pre-cache').find_element_by_tag_name('tbody').find_elements_by_tag_name('tr')
-    song_col = []
-    for playlist in playlists:
-        song_url = playlist.find_elements_by_tag_name('td')[1].find_element_by_class_name('txt').find_element_by_tag_name('a').get_attribute('href')
-        song_name = playlist.find_elements_by_tag_name('td')[1].find_element_by_class_name('txt').find_element_by_tag_name('b').get_attribute('title')
-        song_name = normChara(song_name)
-        song_author = playlist.find_elements_by_tag_name('td')[-2].find_element_by_tag_name('span').get_attribute('title')
-        song_author = normChara(song_author)
-        song_col.append([song_url,song_name,song_author])
-    for index,s_col in enumerate(song_col):
-        br.get(s_col[0])
-        print('<%d/%d>%s_%s-->评论开始抓取...' % ((index + 1),len(song_col),s_col[1],s_col[2]) )
-        br.switch_to.frame('contentFrame')
-        time.sleep(1)
-        totalPages = int(br.find_elements_by_class_name('zpgi')[-1].text)
-        # anchorClick(song_url)
-        tmp = []
-        for i in range(2):
-            print('第<%d/%d>页评论开始抓取...' % (i+1,totalPages))
-            cmts = br.find_elements_by_class_name('itm')
-            comment_list = commentsParser(cmts[-20:])
-            tmp.extend(comment_list)
-            scriptClick(br.find_element_by_link_text('下一页'))
-        print(tmp)
-        print('data/'+s_col[1]+'_'+s_col[2]+'.csv')
-        saveCSV(tmp,'data/'+s_col[1]+'_'+s_col[2]+'.csv')
-        print('-------------')
+    song_urls = findSongURLs(br.page_source)
+    threads = []
+    for song_url in song_urls:
+        threads.append(threading.Thread(target=songParser, args=(song_url,)))
+    for t in threads:
+        t.start()
+        while(True):
+            time.sleep(2)
+            if(len(threading.enumerate())<4):
+                break
+    br.quit()
 
 
 

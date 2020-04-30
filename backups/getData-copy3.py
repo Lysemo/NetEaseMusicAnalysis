@@ -1,6 +1,8 @@
 '''
-vision:2.0
-sovle multi mix comment crawl
+vision:3.0
+update time: 20200407
+add img crawl function to get user avator
+updata directory system
 '''
 from selenium import webdriver
 import copy
@@ -8,6 +10,7 @@ import time
 import csv
 import re
 import threading
+from utils.CrawImg import CrawImg
 
 def normChara(x):
     x = x.replace('/','_')
@@ -31,6 +34,12 @@ def saveCSV(data,name):
     for d in data:
         filewriter.writerow(list(d.values()))
     f.close()
+def saveAvatar(url,nick):
+    crawImg = CrawImg()
+    crawImg.getImg(url)
+    imgName = 'data/avatar/' +nick + crawImg.getArray()[0].getSuffixName()
+    with open(imgName,'wb+') as f:
+        f.write(crawImg.getArray()[0].getImg())
 def commentsParser(comments,song_id):
     comment_list = []
     template_dict = {
@@ -66,6 +75,8 @@ def commentsParser(comments,song_id):
         comment_dict['star']=0
         if(len(star)!=0):
             comment_dict['star']=int(star[1:-1])
+        avatarURL = comment.find_element_by_css_selector('.head').find_element_by_tag_name('img').get_attribute('src')
+        saveAvatar(avatarURL,nick)
         comment_list.append(comment_dict)
     return comment_list
 def songParser(url):
@@ -85,7 +96,7 @@ def songParser(url):
     print('%s_%s-->评论开始抓取...' % (song_name, song_author))
     totalPages = int(br_t.find_elements_by_class_name('zpgi')[-1].text)
 
-    f = open('data/' + song_name + '_' + song_author + '.csv', 'w+', newline='', encoding='utf-8')
+    f = open('data/comment/' + song_name + '_' + song_author + '.csv', 'w+', newline='', encoding='utf-8')
     keys = ['id','nick','comment','refer_nick','refer','time','star']
     filewriter = csv.writer(f)
     filewriter.writerow(list(keys))
@@ -95,7 +106,7 @@ def songParser(url):
         print('(%s-%s)第<%d/%d>页评论开始抓取...' % (song_name, song_author,i + 1, totalPages))
         cmts = br_t.find_elements_by_class_name('itm')
         comment_list = commentsParser(cmts[-20:],song_id)
-        saveCSV(comment_list, 'data/' + song_name + '_' + song_author + '.csv')
+        saveCSV(comment_list, 'data/comment/' + song_name + '_' + song_author + '.csv')
         scriptClick(br_t, br_t.find_element_by_link_text('下一页'))
         # print(comment_list)
     print('-----%s_%s抓取完毕-----' % (song_name,song_author))
