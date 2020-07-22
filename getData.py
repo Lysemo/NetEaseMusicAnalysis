@@ -9,6 +9,9 @@ import re
 import threading
 from utils.CrawImg import CrawImg
 from utils.insert_into_DB import saveComments_to_mongo,saveSongAndSinger_to_mongo
+from utils.read_frmo_DB import read_from_mongo
+
+song_id_coll = []
 
 def normChara(x):
     x = x.replace('/','_')
@@ -82,6 +85,7 @@ def commentsParser(comments,song_id):
             print(nick + 'avatar save happen error')
         comment_list.append(comment_dict)
     return comment_list
+
 def songParser(url):
     p = re.compile(r'\d+')
     song_id = p.findall(url)[0]
